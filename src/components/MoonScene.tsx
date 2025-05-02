@@ -24,20 +24,30 @@ const lunarDescentChecklist = [
   },
 ];
 
-// Initialize audio for lunar descent
+// Initialise audio for lunar descent
 const descentRadio = new Howl({
   src: ["/audio/a11_landing.mp3"],
   volume: 0.7,
   preload: true,
   html5: true,
+  loop: false,
 });
+
+// Define the landing time
+const landingTime = Cesium.JulianDate.fromIso8601("1969-07-20T20:06:00Z");
+// Define mission constants
+const MISSION_START_JULIAN = Cesium.JulianDate.fromIso8601(
+  "1969-07-20T19:51:45Z"
+); // Historical mission start time
+const LAUNCH_JULIAN = Cesium.JulianDate.fromIso8601("1969-07-16T13:32:00Z"); // Actual launch time (T-0)
+const MISSION_START_DATE = Cesium.JulianDate.toDate(MISSION_START_JULIAN);
+const LAUNCH_DATE = Cesium.JulianDate.toDate(LAUNCH_JULIAN);
 
 const MoonScene: React.FC = () => {
   const cesiumContainerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Cesium.Viewer | null>(null);
   const websocketRef = useRef<WebSocket | null>(null);
   const audioPlayingRef = useRef<boolean>(false);
-  // Add a new ref to track if descent has been initiated
   const descentInitiatedRef = useRef<boolean>(false);
 
   // State for checklist and simulation flow
@@ -48,8 +58,45 @@ const MoonScene: React.FC = () => {
   const [checklistCompleted, setChecklistCompleted] = useState(false);
   const lastProgramTypeRef = useRef<string | null>(null);
   const [missionPhase, setMissionPhase] = useState<string>("PRE-DESCENT");
+  // State for the dynamic status text
+  const [statusText, setStatusText] = useState<string>(
+    "WAITING FOR AGC PROGRAM"
+  );
 
-  // Connect  WebSocket for AGC data
+  // Add states for the mission timer, initialised from Cesium start time
+  const [currentUtcTime, setCurrentUtcTime] =
+    useState<Date>(MISSION_START_DATE);
+  const [tMinusTime, setTMinusTime] = useState<number>(
+    Math.floor((LAUNCH_DATE.getTime() - MISSION_START_DATE.getTime()) / 1000)
+  );
+
+  // REMOVED: Independent useEffect for timers
+
+  const formatTMinusTime = (seconds: number): string => {
+    const isNegativeOrZero = seconds <= 0; // Treat 0 as T+0
+    const absoluteSeconds = Math.abs(seconds);
+    const hours = Math.floor(absoluteSeconds / 3600);
+    const minutes = Math.floor((absoluteSeconds % 3600) / 60);
+    const remainingSeconds = absoluteSeconds % 60;
+
+    // Display T+ for 0 or negative seconds, T- for positive seconds
+    return `${isNegativeOrZero ? "T+" : "T-"}${hours
+      .toString()
+      .padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
+  };
+
+  // Format UTC time
+  const formatUtcTime = (date: Date): string => {
+    // Ensure date is valid before formatting
+    if (!date || isNaN(date.getTime())) {
+      return "00:00:00 UTC"; // Or some placeholder
+    }
+    return date.toISOString().substr(11, 8) + " UTC";
+  };
+
+  // Connect WebSocket for AGC data
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}`;
@@ -69,25 +116,27 @@ const MoonScene: React.FC = () => {
           setAgcConnected(message.connected);
           setAgcProgramType(message.programType);
 
+          const isMoonLandingProgram = message.programType === "moon_landing";
+          const canStartSimulation = message.connected && isMoonLandingProgram;
+
           // Auto-proceed when moon_landing program is first detected
           if (
-            message.programType === "moon_landing" &&
+            isMoonLandingProgram &&
             lastProgramTypeRef.current !== "moon_landing" &&
             !simulationActive &&
             showChecklist
           ) {
             console.log("Moon landing program detected - auto proceeding!");
-            handleChecklistComplete();
+            handleChecklistComplete(); // This will also start the clock animation
           }
 
-          // Only control clock animation if descent has not been initiated yet
+          // Control clock animation based on AGC status *before* descent is initiated
           if (
             viewerRef.current &&
             !viewerRef.current.isDestroyed() &&
             !descentInitiatedRef.current
           ) {
-            viewerRef.current.clock.shouldAnimate =
-              message.connected && message.programType === "moon_landing";
+            viewerRef.current.clock.shouldAnimate = canStartSimulation;
           }
           // If descent has been initiated, ensure animation continues regardless of AGC status
           else if (
@@ -103,8 +152,6 @@ const MoonScene: React.FC = () => {
 
         if (message.type === "agc-output") {
           console.log("Received AGC output in MoonScene:", message.payload);
-          // We could also check here for program type based on specific register patterns
-          // if server detection isn't working as expected
         }
       } catch (error) {
         console.error("Error parsing WebSocket message:", error);
@@ -129,11 +176,13 @@ const MoonScene: React.FC = () => {
 
   // Start the Cesium viewer when the component mounts
   useEffect(() => {
+    let clockTickListener: Cesium.Event.RemoveCallback | undefined;
     if (cesiumContainerRef.current && !viewerRef.current) {
       const viewer = new Cesium.Viewer(cesiumContainerRef.current, {
         baseLayer: false, // No base imagery layer
         timeline: false,
-        animation: true,
+        animation: false,
+        shouldAnimate: true,
         baseLayerPicker: false,
         geocoder: false,
         shadows: true,
@@ -145,16 +194,14 @@ const MoonScene: React.FC = () => {
       viewerRef.current = viewer;
       const scene = viewer.scene;
 
-      const startTime = Cesium.JulianDate.fromIso8601("1969-07-20T20:05:00Z");
-      viewer.clock.currentTime = startTime;
-      viewer.clock.startTime = startTime;
+      // Set initial clock state matching MISSION_START_JULIAN
+      viewer.clock.currentTime = MISSION_START_JULIAN;
+      viewer.clock.startTime = MISSION_START_JULIAN;
       viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
-      // Initially pause the clock until AGC program is detected
-      viewer.clock.shouldAnimate = false;
+      viewer.clock.shouldAnimate = false; // Start paused
 
       scene.skyBox = Cesium.SkyBox.createEarthSkyBox();
 
-      // Add Moon Terrain 3D Tiles
       Cesium.Cesium3DTileset.fromIonAssetId(2684829, {
         enableCollision: true,
       })
@@ -165,7 +212,6 @@ const MoonScene: React.FC = () => {
           console.log(`Error loading tileset: ${error}`);
         });
 
-      // Add Points of Interest
       pointsOfInterest.forEach((poi) => {
         viewer.entities.add({
           position: Cesium.Cartesian3.fromDegrees(poi.longitude, poi.latitude),
@@ -196,20 +242,17 @@ const MoonScene: React.FC = () => {
         });
       });
 
-      async function initialize() {
-        const czmlFilePath = "/apollo11_mission.czml";
+      async function initialise() {
+        const czmlFilePath = "/apollo11_mission_descent.czml";
         try {
-          // Set up clock settings before loading CZML
-          const startTime = Cesium.JulianDate.fromIso8601(
-            "1969-07-20T19:51:30Z"
-          );
+          // Explicitly set the start time to match the mission timeline
+          const startTime = MISSION_START_JULIAN;
+
           const stopTime = Cesium.JulianDate.fromIso8601(
             "1969-07-21T21:00:00Z"
           );
 
-          // Create data source with custom clock settings
           const czmlDataSource = new Cesium.CzmlDataSource({
-            // Override the default CZML clock settings
             clock: new Cesium.DataSourceClock({
               startTime: startTime,
               currentTime: startTime,
@@ -219,19 +262,17 @@ const MoonScene: React.FC = () => {
             }),
           });
 
-          // Load CZML data
           await czmlDataSource.load(czmlFilePath);
           await viewer.dataSources.add(czmlDataSource);
 
-          // Force viewer clock settings after CZML is loaded
+          // Ensure viewer clock matches the data source clock settings
           viewer.clock.startTime = startTime;
           viewer.clock.currentTime = startTime;
+          viewer.clock.stopTime = stopTime; // Set stop time as well
           viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
           viewer.clock.multiplier = 1;
+          viewer.clock.shouldAnimate = false; // Keep paused initially
 
-          viewer.clock.shouldAnimate = false;
-
-          // Setup proper orientation for both stages
           const descentStage = czmlDataSource.entities.getById("LM_Descent");
           const ascentStage = czmlDataSource.entities.getById("LM_Ascent");
 
@@ -240,9 +281,8 @@ const MoonScene: React.FC = () => {
               descentStage.position
             );
             descentStage.viewFrom = new Cesium.ConstantProperty(
-              new Cesium.Cartesian3(0, 50, 10) // Further view for descent stage
+              new Cesium.Cartesian3(0, 50, 10)
             );
-
             viewer.trackedEntity = descentStage;
           }
 
@@ -266,35 +306,74 @@ const MoonScene: React.FC = () => {
         }
       }
 
-      initialize();
+      initialise();
+
+      // Add clock tick listener to update status text AND React timers
+      clockTickListener = viewer.clock.onTick.addEventListener((clock) => {
+        // Update React state timers from Cesium clock
+        const currentJulianDate = clock.currentTime;
+        const currentJsDate = Cesium.JulianDate.toDate(currentJulianDate);
+        setCurrentUtcTime(currentJsDate);
+
+        const timeRelativeToLaunch = Math.floor(
+          (LAUNCH_DATE.getTime() - currentJsDate.getTime()) / 1000
+        );
+        setTMinusTime(timeRelativeToLaunch);
+
+        // Update status text based on simulation state and time
+        if (simulationActive) {
+          if (
+            Cesium.JulianDate.greaterThanOrEquals(
+              currentJulianDate,
+              landingTime
+            )
+          ) {
+            setStatusText("EAGLE HAS LANDED");
+            setMissionPhase("LANDING COMPLETE"); // Optionally update mission phase too
+          } else {
+            setStatusText("DESCENT IN PROGRESS");
+          }
+        } else if (!showChecklist && checklistCompleted) {
+          // This state might occur briefly if checklist completes but AGC isn't ready yet
+          setStatusText("WAITING FOR AGC PROGRAM");
+        } else if (showChecklist) {
+          setStatusText("WAITING FOR AGC PROGRAM");
+        }
+      });
 
       // Cleanup function
       return () => {
+        if (clockTickListener) {
+          clockTickListener(); // Remove the listener
+        }
         if (viewerRef.current && !viewerRef.current.isDestroyed()) {
           viewerRef.current.destroy();
         }
         viewerRef.current = null;
       };
     }
-  }, []); // Initialize immediately when component mounts
+  }, []); // Run only once on mount
 
   const handleChecklistComplete = () => {
     setChecklistCompleted(true);
     setShowChecklist(false);
     setSimulationActive(true);
     setMissionPhase("LUNAR DESCENT INITIATED");
+    setStatusText("DESCENT IN PROGRESS"); // Set initial status after checklist
 
-    // Set our descent initiated flag to true
     descentInitiatedRef.current = true;
 
-    // Play the descent radio audio
     if (!audioPlayingRef.current) {
       descentRadio.play();
       audioPlayingRef.current = true;
     }
 
-    // Ensure the clock starts when checklist is complete
-    if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+    // Start Cesium clock animation ONLY if it's not already running
+    if (
+      viewerRef.current &&
+      !viewerRef.current.isDestroyed() &&
+      !viewerRef.current.clock.shouldAnimate
+    ) {
       viewerRef.current.clock.shouldAnimate = true;
     }
   };
@@ -309,7 +388,6 @@ const MoonScene: React.FC = () => {
     };
   }, []);
 
-  // Determine if we can proceed based on AGC program type
   const canProceedWithMission =
     agcConnected && agcProgramType === "moon_landing";
 
@@ -328,18 +406,36 @@ const MoonScene: React.FC = () => {
         />
       )}
 
-      {/* Mission status toggle button */}
+      <div className="absolute top-4 right-4 z-10">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-md p-3 text-zinc-300 font-mono text-xs">
+          <div className="mb-1 text-zinc-500">
+            {formatUtcTime(currentUtcTime)}
+          </div>
+          <div className="flex items-center">
+            {/* Conditionally render pulse based on Cesium clock animation state */}
+            <div
+              className={`w-2 h-2 rounded-full mr-2 ${viewerRef.current?.clock.shouldAnimate ? "bg-zinc-500 animate-pulse" : "bg-zinc-700"}`}
+            ></div>
+            {formatTMinusTime(tMinusTime)}
+          </div>
+        </div>
+      </div>
+
       {!showChecklist && checklistCompleted && (
         <div className="absolute top-4 left-4 z-10">
           <button className="bg-zinc-950 border border-zinc-800 rounded-md p-3 text-zinc-300 font-mono text-xs hover:bg-zinc-900 transition-colors">
             <div className="mb-1 text-zinc-500">{missionPhase}</div>
             <div className="flex items-center">
               <div
-                className={`w-2 h-2 rounded-full mr-2 ${simulationActive ? "bg-zinc-500 animate-pulse" : "bg-zinc-700"}`}
+                className={`w-2 h-2 rounded-full mr-2 ${
+                  simulationActive && statusText === "DESCENT IN PROGRESS"
+                    ? "bg-zinc-500 animate-pulse" // Pulse only during active descent
+                    : statusText === "EAGLE HAS LANDED"
+                      ? "bg-green-500" // Solid green on landing
+                      : "bg-zinc-700" // Default grey
+                }`}
               ></div>
-              {simulationActive
-                ? "DESCENT IN PROGRESS"
-                : "WAITING FOR AGC PROGRAM"}
+              {statusText}
             </div>
           </button>
         </div>

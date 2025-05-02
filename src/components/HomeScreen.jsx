@@ -1,19 +1,18 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Play, Wifi, WifiOff } from "lucide-react"; // Import Wifi icons
+import { Play } from "lucide-react"; // Import Wifi icons
 import { Button } from "./ui/button";
 import { Howl } from "howler";
 
 const HomeScreen = ({ onSceneSelect }) => {
   const [selectedOption, setSelectedOption] = useState(null);
-  const [agcConnected, setAgcConnected] = useState(false); // State for AGC connection
-  const [agcProgramType, setAgcProgramType] = useState(null); // State for AGC program type
+  const [agcConnected, setAgcConnected] = useState(false);
+  const [agcProgramType, setAgcProgramType] = useState(null);
   const hoverSoundRef = useRef(null);
   const soundtrackRef = useRef(null);
   const wsRef = useRef(null); // Ref for WebSocket
 
-  // Initialize hover sound once
   useEffect(() => {
     hoverSoundRef.current = new Howl({
       src: ["/audio/hover.mp3"],
@@ -47,7 +46,6 @@ const HomeScreen = ({ onSceneSelect }) => {
     };
   }, []);
 
-  // WebSocket connection effect
   useEffect(() => {
     // Determine WebSocket protocol based on window location protocol
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -70,9 +68,8 @@ const HomeScreen = ({ onSceneSelect }) => {
             message.programType
           );
           setAgcConnected(message.connected);
-          setAgcProgramType(message.programType); // Store program type
+          setAgcProgramType(message.programType);
         }
-        // Handle other message types if needed
       } catch (error) {
         console.error("Error parsing WebSocket message:", error);
       }
@@ -84,9 +81,8 @@ const HomeScreen = ({ onSceneSelect }) => {
 
     wsRef.current.onclose = () => {
       console.log("WebSocket disconnected");
-      setAgcConnected(false); // Assume disconnected on close
+      setAgcConnected(false);
       setAgcProgramType(null);
-      // Optional: Implement reconnection logic here
     };
 
     // Cleanup function
@@ -95,7 +91,7 @@ const HomeScreen = ({ onSceneSelect }) => {
         wsRef.current.close();
       }
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
   const handleOptionSelect = (option) => {
     setSelectedOption(option);
@@ -103,18 +99,17 @@ const HomeScreen = ({ onSceneSelect }) => {
   };
 
   const handleBeginExperience = () => {
-    // Map the new UI options to the existing scene values
     const sceneMap = {
       launch: "earth",
       landing: "moon",
     };
 
-    // Only proceed if an option is selected AND AGC is connected
+    // only proceed if an option is selected and the AGC is connected
     if (selectedOption && sceneMap[selectedOption] && agcConnected) {
       onSceneSelect(sceneMap[selectedOption]);
     } else {
       console.log(
-        "Cannot begin experience. Option selected:",
+        "Cannot begin sim. Option selected:",
         selectedOption,
         "AGC connected:",
         agcConnected
@@ -132,7 +127,6 @@ const HomeScreen = ({ onSceneSelect }) => {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
-      {/* Video Background with Overlay */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/90 z-10"></div>
         <video
@@ -146,12 +140,11 @@ const HomeScreen = ({ onSceneSelect }) => {
             src="https://9m9q3cs802.ufs.sh/f/tjjqrl6qwAEbYvt7acjWEyT7sfrH3UuMX5OjJBzq4m0eSNpd"
             type="video/mp4"
           />
-          Your browser does not support the video tag.
+          Video tag not supported by your browser.
         </video>
         <div className="noise-bg"></div>
       </div>
 
-      {/* Content */}
       <div className="relative z-20 flex flex-col items-center justify-center min-h-screen px-4 py-12 text-white">
         <div className="absolute top-8 right-8">
           <img
@@ -215,7 +208,7 @@ const HomeScreen = ({ onSceneSelect }) => {
                     src="https://9m9q3cs802.ufs.sh/f/tjjqrl6qwAEb2hBZFilxBoT8hlv2KRkq7mAgnwPCiNG14cSX"
                     type="video/mp4"
                   />
-                  Your browser does not support the video tag.
+                  Video tag not supported by your browser.
                 </video>
               </div>
               <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center"></div>
@@ -241,7 +234,6 @@ const HomeScreen = ({ onSceneSelect }) => {
             </button>
           </div>
 
-          {/* Moon Landing Option */}
           <div className="group" onMouseEnter={playHoverSound}>
             <button
               onClick={() => handleOptionSelect("landing")}
@@ -254,9 +246,8 @@ const HomeScreen = ({ onSceneSelect }) => {
                   ? ""
                   : agcConnected && agcProgramType !== null
                     ? "opacity-50 cursor-not-allowed"
-                    : "" // Dim if connected but wrong program
+                    : ""
               }`}
-              // Disable button if AGC is connected but not the right program
               disabled={
                 agcConnected &&
                 agcProgramType !== null &&
@@ -309,17 +300,14 @@ const HomeScreen = ({ onSceneSelect }) => {
           </div>
         </div>
 
-        {/* Begin Experience Button Area */}
         <div className="mt-4 h-16">
-          {" "}
-          {/* Added fixed height container */}
           {selectedOption && (
             <div className="animate-fade-in">
               <Button
                 onClick={handleBeginExperience}
                 onMouseEnter={playHoverSound}
                 size="lg"
-                disabled={isButtonDisabled} // Use the combined disabled state
+                disabled={isButtonDisabled}
                 className={`bg-transparent hover:bg-white/5 text-white border border-white/20 rounded-full px-8 py-6 h-auto text-sm uppercase tracking-widest font-light transition-all duration-300 hover:border-white/40 ${
                   isButtonDisabled
                     ? "opacity-50 cursor-not-allowed hover:bg-transparent hover:border-white/20"

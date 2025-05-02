@@ -1,3 +1,5 @@
+// TODO need to implement this webglstub to test webgl environment of cesium?
+
 import { defaultValue } from "@cesium/engine";
 import { Viewer } from "../index.js";
 

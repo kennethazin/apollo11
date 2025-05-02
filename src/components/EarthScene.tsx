@@ -42,7 +42,7 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
   const agcConnectedRef = useRef(false);
   const agcProgramTypeRef = useRef<string | null>(null);
 
-  // Add states for UI display only, not for controlling Cesium initialization
+  // Add states for UI display only, not for controlling Cesium initialisation
   const [showChecklist, setShowChecklist] = useState(true);
   const [agcConnected, setAgcConnected] = useState(false);
   const [agcProgramType, setAgcProgramType] = useState<string | null>(null);
@@ -109,9 +109,7 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
     }, 1000);
 
     return () => clearInterval(missionTimer);
-  }, []); // Run only once on mount
-
-  // Removed the separate countdown effect
+  }, []);
 
   // Format T-minus/T-plus time as MM:SS with proper sign
   const formatTMinusTime = (seconds: number): string => {
@@ -132,9 +130,6 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
   // Handle checklist completion
   const handleChecklistComplete = () => {
     setShowChecklist(false);
-    // Countdown is implicitly handled by the main timer reaching T-0
-    // We no longer need to explicitly start a countdown here.
-    // The simulation will pause just before T-0 until AGC output is received.
   };
 
   useEffect(() => {
@@ -269,7 +264,7 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
       },
     };
 
-    // Initialize thruster loop with spatial properties
+    // Initialise thruster loop with spatial properties
     audioRefs.current.thrusterLoop = new Howl({
       src: "/audio/thruster-loop.mp3",
       loop: true,
@@ -281,9 +276,9 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
       distanceModel: "linear", // Linear, inverse or exponential
     });
 
-    // Initialize audio sources for each stage
+    // Initialise audio sources for each stage
     Object.entries(stageIntervals).forEach(([stageName, stageData]) => {
-      // Initialize main audio for stage
+      // Initialise main audio for stage
       audioRefs.current.stageAudios[stageName] = stageData.audioSources.map(
         (audio) => ({
           howl: new Howl({
@@ -297,7 +292,7 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
         })
       );
 
-      // Initialize radio comms for stage if available
+      // Initialise radio comms for stage if available
       if (stageData.radioSources) {
         audioRefs.current.radioAudios = audioRefs.current.radioAudios || {};
         audioRefs.current.radioAudios[stageName] = stageData.radioSources.map(
@@ -314,10 +309,10 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
     // Don't auto-play prelaunch audios - we'll handle this with the time check
     audioRefs.current.currentStage = "prelaunch";
 
-    // Check if the container ref is available before initializing
+    // Check if the container ref is available before initialising
     if (cesiumContainerRef.current && !viewerRef.current) {
       (async () => {
-        async function initializeViewer() {
+        async function initialiseViewer() {
           const terrainProvider =
             await Cesium.CesiumTerrainProvider.fromIonAssetId(1);
           // Use the ref directly
@@ -356,8 +351,8 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
           return viewer;
         }
 
-        // Only initialize once, never recreate the viewer
-        const viewer = await initializeViewer();
+        // Only initialise once, never recreate the viewer
+        const viewer = await initialiseViewer();
         viewerRef.current = viewer; // Store viewer instance
 
         try {
@@ -382,7 +377,7 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
 
         viewer.scene.globe.depthTestAgainstTerrain = true;
 
-        async function initialize() {
+        async function initialise() {
           const czmlFilePath = "/saturn_v_trajectory_with_delay.czml"; // Correct path to match the actual file
           try {
             console.log("Loading CZML file from:", czmlFilePath);
@@ -759,7 +754,7 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
               );
             }
 
-            // Optimized particle system for thrusters
+            // Optimised particle system for thrusters
             const thrusterParticles = new Cesium.ParticleSystem({
               image: fireImage, // Path to particle image
               startColor: Cesium.Color.RED.withAlpha(0.7), // Reduce opacity for better blending
@@ -897,7 +892,7 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
                   // Calculate the offset for the thruster position relative to the model's center
                   // This offset needs to be in the model's local coordinate system.
                   // Assuming the thruster is at the 'bottom' (e.g., -Z direction) of the rocket model.
-                  // Adjust the offset vector (e.g., new Cesium.Cartesian3(0, 0, -15)) based on your model's size and orientation.
+                  // Adjust the offset vector (e.g., new Cesium.Cartesian3(0, 0, -15)) based on your model's Size and orientation.
                   const thrusterOffset = new Cesium.Cartesian3(0, 0, 0); // Example offset (adjust Z value)
 
                   // Get the model matrix (position and orientation)
@@ -997,7 +992,7 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
             }
           }
         }
-        await initialize();
+        await initialise();
       })();
     } // End of check for cesiumContainerRef.current
 
@@ -1063,7 +1058,6 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
         className="w-full h-full absolute top-0 left-0"
       />
 
-      {/* Mission Timer in top right */}
       <div className="absolute top-4 right-4 z-10">
         <div className="bg-zinc-950 border border-zinc-800 rounded-md p-3 text-zinc-300 font-mono text-xs">
           <div className="mb-1 text-zinc-500">
@@ -1076,7 +1070,6 @@ const Earth: React.FC<EarthProps> = ({ onEarthSceneEnd }) => {
         </div>
       </div>
 
-      {/* Mission status in top left */}
       <div className="absolute top-4 left-4 z-10">
         <div className="bg-zinc-950 border border-zinc-800 rounded-md p-3 text-zinc-300 font-mono text-xs">
           <div className="mb-1 text-zinc-500">SATURN V LAUNCH</div>

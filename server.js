@@ -1,12 +1,13 @@
 import express from "express";
+import process from "process";
 import cors from "cors";
 import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer, WebSocket } from "ws";
 import dotenv from "dotenv";
+import fs from "fs";
 
-// Define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -14,11 +15,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: ".env.local" });
 const PORT = process.env.PORT || 3001;
 
-// Create Express app
 const app = express();
-
-// Check if dist directory exists and handle accordingly
-import fs from "fs";
 
 const distPath = path.join(__dirname, "dist");
 const distExists = fs.existsSync(distPath);
@@ -31,10 +28,8 @@ app.use(bodyParser.json());
 if (distExists) {
   app.use(express.static(distPath));
 } else {
-  console.warn(
-    "Warning: 'dist' directory not found. Static file serving disabled."
-  );
-  console.warn("You may need to build your frontend application first.");
+  console.warn("Warning: 'dist' directory was not found.");
+  console.warn("Built the application first.");
 }
 
 // Add error handling middleware
@@ -71,10 +66,9 @@ function checkAgcConnectionStatus() {
   return false;
 }
 
-// Function to detect which AGC program is loaded
+// detects which AGC program is loaded
 function detectAgcProgram(content) {
   try {
-    // Extract register values and check program type
     const lines = content.split("\n");
 
     // Look for register values after the connection line
@@ -109,11 +103,11 @@ function detectAgcProgram(content) {
     if (hasSaturnR3D5) {
       return "saturn_v";
     } else if (r3d1Zeros >= 5) {
-      // If we have multiple consecutive R3D1:0 entries, it's likely moon landing program
+      // if we have multiple consecutive R3D1:0 entries, its most likely moon landing program
       return "moon_landing";
     }
 
-    // If registers exist but don't match known patterns, return "unknown"
+    // if registers exist but don't match known patterns, return "unknown"
     return registerLines.length > 0 ? "unknown" : null;
   } catch (err) {
     console.error("Error detecting AGC program type:", err);
@@ -121,7 +115,7 @@ function detectAgcProgram(content) {
   }
 }
 
-// Function to broadcast AGC connection status to all clients
+// this broadcasts the AGC connection status to all clients
 function broadcastAgcStatus(status, programType = null) {
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
@@ -209,38 +203,6 @@ server.on("upgrade", (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
     wss.emit("connection", ws, request);
   });
-});
-
-// Webhook endpoint for spacecraft distance
-app.post("/api/spacecraft-distance", (req, res) => {
-  try {
-    const { distance } = req.body;
-
-    if (distance === undefined || isNaN(Number(distance))) {
-      return res.status(400).json({ error: "Invalid distance value" });
-    }
-
-    console.log(`Received spacecraft distance: ${distance}`);
-
-    // Broadcast to all connected WebSocket clients
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(
-          JSON.stringify({
-            type: "spacecraft-distance",
-            payload: Number(distance),
-          })
-        );
-      }
-    });
-
-    res
-      .status(200)
-      .json({ status: "success", message: "Distance data received" });
-  } catch (error) {
-    console.error("Error in spacecraft-distance endpoint:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
 });
 
 // Set up file watching for the AGC output.txt file
@@ -415,7 +377,6 @@ function setupFileWatcher() {
   }
 }
 
-// Initialize the file watcher
 setupFileWatcher();
 
 function clearOutputFile() {
@@ -432,6 +393,7 @@ function clearOutputFile() {
 // Handle graceful shutdown
 ["SIGINT", "SIGTERM", "SIGQUIT"].forEach((signal) => {
   process.on(signal, () => {
+    // TODO: not sure why ts server is having issues here
     console.log(
       `\nReceived ${signal} signal, clearing output file and shutting down...`
     );
@@ -469,10 +431,16 @@ app.get("/:path", (req, res) => {
   if (distExists) {
     res.sendFile(path.join(distPath, "index.html"));
   } else {
-    res
-      .status(404)
-      .send(
-        "Frontend build files not found. Please build the frontend application."
-      );
+    res.status(404).send("Frontend build files not found");
   }
 });
+
+export {
+  server,
+  app,
+  wss,
+  checkAgcConnectionStatus,
+  detectAgcProgram,
+  detectApollo11LaunchSequence,
+  parseOutputContent,
+};

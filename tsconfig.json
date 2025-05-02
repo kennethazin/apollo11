@@ -44,6 +44,6 @@
     /* Completeness */
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
   },
-  "include": ["./src", "server.js"],
+  "include": ["./src", "server.js", "vitest.setup.js"],
   "exclude": ["node_modules", "./dist", "./tests"]
 }

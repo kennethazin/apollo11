@@ -4690,20 +4690,6 @@
       "gltf": "/models/lm/lunarmodule.gltf",
       "minimumPixelSize": 64,
       "maximumScale": 20000
-    },
-    "label": {
-      "text": "Eagle LM (Descent)",
-      "show": true,
-      "font": "11pt",
-      "outlineWidth": 2,
-      "outlineColor": {
-        "rgba": [
-          0,
-          0,
-          0,
-          255
-        ]
-    }
     }
   },
   {
@@ -4712,9 +4698,9 @@
     "availability": "1969-07-20T20:05:37Z/1969-07-21T17:54:00Z",
     "position": {
       "cartesian": [
-        1599503.4236376921,
-        679569.4377449914,
-        20449.377845264928
+        1599648.023,
+        679711.394, 
+        20589.436  
       ]
     },
     "model": {

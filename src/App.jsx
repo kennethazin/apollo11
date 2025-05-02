@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useEffect } from "react";
+import React, { useState, lazy, Suspense, useEffect } from "react";
 import HomeScreen from "./components/HomeScreen";
 import Earth from "./components/EarthScene";
 import LoadingScreen from "./components/LoadingScreen";
@@ -6,13 +6,12 @@ import AgcConnectionIndicator from "./components/AgcConnectionIndicator";
 const MoonScene = lazy(() => import("./components/MoonScene"));
 
 function App() {
-  window.CESIUM_BASE_URL = "/cesium/"; // Example path, adjust as needed
-  const [currentScene, setCurrentScene] = useState("home"); // Start with home screen
-  const [isLoading, setIsLoading] = useState(false); // Add loading state
-  const [nextScene, setNextScene] = useState(null); // Track the next scene to load
-  const [agcConnected, setAgcConnected] = useState(false); // Track AGC connection status
+  window.CESIUM_BASE_URL = "/cesium/"; //TODO find out why Cesium documentation has this?
+  const [currentScene, setCurrentScene] = useState("home");
+  const [isLoading, setIsLoading] = useState(false);
+  const [nextScene, setNextScene] = useState(null);
+  const [agcConnected, setAgcConnected] = useState(false);
 
-  // Callback function to switch scenes
   const handleEarthSceneEnd = () => {
     console.log("Earth scene finished, returning to home screen");
     setIsLoading(true);
@@ -22,8 +21,8 @@ function App() {
   // Handle scene selection from home screen
   const handleSceneSelect = (scene) => {
     console.log(`Selected scene: ${scene}`);
-    setIsLoading(true); // Start loading
-    setNextScene(scene); // Set the next scene to load
+    setIsLoading(true);
+    setNextScene(scene);
   };
 
   // Effect to transition from loading to the actual scene
@@ -33,13 +32,13 @@ function App() {
         setCurrentScene(nextScene);
         setIsLoading(false);
         setNextScene(null);
-      }, 1000); // Reduced timeout
+      }, 5000); // Reduced timeout
 
       return () => clearTimeout(timer);
     }
   }, [isLoading, nextScene]);
 
-  // Set up WebSocket connection to monitor AGC status
+  // webocket connection effect to monitor AGC status
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}`;
@@ -87,14 +86,18 @@ function App() {
 
   return (
     <>
-      <AgcConnectionIndicator connected={agcConnected} />
-      <div>
-        {/* Render Home Screen */}
+      <AgcConnectionIndicator
+        connected={agcConnected}
+        data-testid="agc-indicator"
+      />
+      <div data-testid="home-screen">
         {currentScene === "home" && !isLoading && (
-          <HomeScreen onSceneSelect={handleSceneSelect} />
+          <HomeScreen
+            onSceneSelect={handleSceneSelect}
+            data-testid="home-screen"
+          />
         )}
 
-        {/* Render Loading Screen */}
         {isLoading && (
           <LoadingScreen
             message={
@@ -102,21 +105,23 @@ function App() {
                 ? "Preparing Earth launch sequence..."
                 : "Initiating lunar landing module..."
             }
+            data-testid="loading-screen"
           />
         )}
 
-        {/* Render Earth scene */}
         {currentScene === "earth" && !isLoading && (
           <Suspense
             fallback={
               <LoadingScreen message="Preparing Earth launch sequence..." />
             }
           >
-            <Earth onEarthSceneEnd={handleEarthSceneEnd} />
+            <Earth
+              onEarthSceneEnd={handleEarthSceneEnd}
+              data-testid="earth-scene"
+            />
           </Suspense>
         )}
 
-        {/* Render Moon scene with Suspense */}
         {currentScene === "moon" && !isLoading && (
           <Suspense
             fallback={

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -24,7 +25,7 @@ export default function SpaceLoadingScreen() {
         if (prev >= 100) {
           clearInterval(interval);
           setIsComplete(true);
-          return 100;
+          return 3000;
         }
 
         // Update message based on progress
@@ -37,7 +38,7 @@ export default function SpaceLoadingScreen() {
           setCurrentMessageIndex(newIndex);
         }
 
-        return prev + 0.71; // Adjusted to complete in 7 seconds
+        return prev + 1.0;
       });
     }, 50);
 
@@ -45,42 +46,16 @@ export default function SpaceLoadingScreen() {
     const timeout = setTimeout(() => {
       setProgress(100);
       setIsComplete(true);
-    }, 7000);
+    }, 5000);
 
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [currentMessageIndex]);
+  }, [currentMessageIndex, loadingMessages.length]);
 
   return (
     <div className="relative h-screen w-full bg-zinc-950 overflow-hidden flex flex-col items-center justify-center px-4">
-      <div className="absolute inset-0">
-        {[...Array(40)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full bg-white"
-            initial={{
-              x: Math.random() * window.innerWidth,
-              y: Math.random() * window.innerHeight,
-              opacity: Math.random() * 0.3 + 0.1,
-            }}
-            animate={{
-              opacity: [null, 0.1, 0.3, 0.1],
-            }}
-            transition={{
-              duration: Math.random() * 4 + 3,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "easeInOut",
-            }}
-            style={{
-              width: `${Math.random() * 2 + 1}px`,
-              height: `${Math.random() * 2 + 1}px`,
-            }}
-          />
-        ))}
-      </div>
-
       <motion.div
         className="text-zinc-400 text-sm font-light tracking-wider mb-12 h-5 overflow-hidden"
         initial={{ opacity: 0 }}
@@ -101,7 +76,6 @@ export default function SpaceLoadingScreen() {
         </AnimatePresence>
       </motion.div>
 
-      {/* Minimal progress bar */}
       <div className="w-64 h-[1px] bg-zinc-800 relative overflow-hidden">
         <motion.div
           className="h-full bg-zinc-400"
